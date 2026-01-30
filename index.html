@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Grand Theatre Booking</title>
+
+<style>
+:root{
+  --bg:#0b0b0b;
+  --panel:rgba(255,255,255,0.08);
+  --text:#ffffff;
+  --accent:#00cec9;
+}
+
+body.high-contrast{
+  --bg:#ffffff;
+  --panel:#000000;
+  --text:#000000;
+}
+
+body{
+  margin:0;
+  font-family:Segoe UI, sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+
+.container{
+  width:1200px;
+  margin:auto;
+  padding:30px;
+}
+
+/* ---------- STAGE ---------- */
+.stage{
+  background:linear-gradient(to right,#f6d365,#fda085);
+  color:#000;
+  text-align:center;
+  padding:18px;
+  font-size:26px;
+  font-weight:bold;
+  border-radius:14px;
+  margin-bottom:25px;
+  box-shadow:0 0 30px rgba(255,200,0,0.6);
+}
+
+/* ---------- LEGEND ---------- */
+.legend{
+  display:flex;
+  gap:30px;
+  margin-bottom:20px;
+}
+.legend span{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.legend i{
+  width:22px;
+  height:22px;
+  border-radius:6px;
+}
+
+/* ---------- SEATS ---------- */
+.grid{
+  display:grid;
+  grid-template-columns:40px repeat(10,1fr);
+  gap:12px;
+}
+
+.row-label{
+  font-weight:bold;
+  text-align:center;
+  line-height:55px;
+}
+
+.seat{
+  height:55px;
+  border-radius:10px;
+  font-weight:bold;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  color:#000;
+  transition:transform .15s;
+}
+
+.seat:hover{transform:scale(1.05)}
+
+.silver{background:#bdc3c7}
+.gold{background:#f1c40f}
+.platinum{background:#e5e4e2}
+
+.selected{outline:4px solid var(--accent)}
+.sold-out{background:#636e72!important;cursor:not-allowed}
+
+/* ---------- SHAKE ---------- */
+@keyframes shake{
+  0%{transform:translateX(0)}
+  25%{transform:translateX(-4px)}
+  50%{transform:translateX(4px)}
+  75%{transform:translateX(-4px)}
+  100%{transform:translateX(0)}
+}
+.shake{animation:shake .3s}
+
+/* ---------- PANEL ---------- */
+.panel{
+  margin-top:25px;
+  background:var(--panel);
+  padding:25px;
+  border-radius:16px;
+}
+
+button{
+  margin-top:12px;
+  padding:12px 22px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  background:var(--accent);
+  color:#000;
+}
+
+input{
+  width:100%;
+  padding:10px;
+  margin:8px 0;
+  border-radius:6px;
+  border:none;
+}
+
+.timer{color:#f39c12;font-weight:bold}
+#error{color:#ff7675;height:18px}
+
+/* ---------- RECEIPT ---------- */
+.invoice{
+  max-width:500px;
+  margin:auto;
+  background:#fff;
+  color:#000;
+  padding:35px;
+  border-radius:18px;
+  box-shadow:0 15px 40px rgba(0,0,0,.4);
+}
+.invoice h1{text-align:center}
+.invoice hr{margin:20px 0}
+
+/* ---------- PAYMENT ---------- */
+.payment-box{
+  max-width:420px;
+  margin:auto;
+  background:rgba(255,255,255,.08);
+  padding:35px;
+  border-radius:20px;
+  backdrop-filter:blur(10px);
+  text-align:center;
+}
+.card-icons{font-size:28px;margin-bottom:15px}
+
+/* ---------- SUCCESS ---------- */
+.success-card{
+  max-width:500px;
+  margin:auto;
+  background:linear-gradient(135deg,#00cec9,#0984e3);
+  padding:40px;
+  border-radius:22px;
+  color:#fff;
+  text-align:center;
+  box-shadow:0 20px 50px rgba(0,0,0,.4);
+}
+.success-card .tick{font-size:60px}
+
+/* ---------- SPINNER ---------- */
+.spinner{
+  border:6px solid #ccc;
+  border-top:6px solid var(--accent);
+  border-radius:50%;
+  width:50px;
+  height:50px;
+  animation:spin 1s linear infinite;
+  margin:auto;
+}
+@keyframes spin{100%{transform:rotate(360deg)}}
+
+#receiptView,#paymentView,#successView{display:none}
+
+@media print{
+  body *{visibility:hidden}
+  #receiptView,#receiptView *{visibility:visible}
+  #receiptView{position:absolute;top:0;left:0;width:100%}
+}
+</style>
+</head>
+
+<body>
+
+<div class="container" id="mainView">
+
+<button onclick="toggleContrast()">♿ Accessibility Mode</button>
+
+<div class="stage">🎭 GRAND THEATRE STAGE</div>
+
+<div class="legend">
+  <span><i style="background:#bdc3c7"></i>Silver ₹1000</span>
+  <span><i style="background:#f1c40f"></i>Gold ₹1500</span>
+  <span><i style="background:#e5e4e2"></i>Platinum ₹2000</span>
+  <span><i style="background:#636e72"></i>Sold</span>
+</div>
+
+<div class="grid" id="seatGrid"></div>
+
+<div class="panel">
+  <p><b>Seats:</b> <span id="seatList">None</span></p>
+  <p><b>Total Seats:</b> <span id="count">0</span></p>
+  <p><b>Total Amount:</b> ₹<span id="price">0</span></p>
+  <p class="timer">⏳ Hold Time: <span id="timer">60</span>s</p>
+  <button onclick="openReceipt()">Checkout</button>
+  <div id="error"></div>
+</div>
+</div>
+
+<!-- RECEIPT -->
+<div class="container" id="receiptView">
+  <div class="invoice">
+    <h1>🎭 Grand Theatre</h1>
+    <p style="text-align:center">Official Booking Receipt</p>
+    <hr>
+    <p><b>Booking ID:</b> <span id="rId"></span></p>
+    <p><b>Seats:</b> <span id="rSeats"></span></p>
+    <p><b>Total Seats:</b> <span id="rCount"></span></p>
+    <p><b>Total Amount:</b> ₹<span id="rAmount"></span></p>
+    <hr>
+    <button onclick="window.print()">🖨 Print</button>
+    <button onclick="goToPayment()">Proceed to Payment</button>
+  </div>
+</div>
+
+<!-- PAYMENT -->
+<div class="container" id="paymentView">
+  <div class="payment-box">
+    <h1>💳 Secure Payment</h1>
+    <div class="card-icons">💳 💳 💳</div>
+    <input id="amountBox" disabled>
+    <input id="cardNumber" placeholder="Card Number (16 digits)">
+    <input id="cvv" placeholder="CVV">
+    <button onclick="processPayment()">Pay Securely</button>
+    <div id="processing" style="display:none">
+      <div class="spinner"></div>
+      <p>Processing Payment...</p>
+    </div>
+  </div>
+</div>
+
+<!-- SUCCESS -->
+<div class="container" id="successView">
+  <div class="success-card">
+    <div class="tick">✅</div>
+    <h1>Booking Successful!</h1>
+    <p>Booking ID: <b><span id="sId"></span></b></p>
+    <p>Seats: <span id="sSeats"></span></p>
+    <p>Total Paid: ₹<span id="sAmount"></span></p>
+    <h3>Enjoy the show 🎶</h3>
+  </div>
+</div>
+
+<script>
+const grid=document.getElementById("seatGrid");
+const timerEl=document.getElementById("timer");
+
+let selected=[],total=0,hold=60,timer,bookingId="";
+
+const rows="ABCDEFGHIJ".split("");
+const sold=new Set([3,8,14,22,29,35,44,56,63,71,84,97]);
+
+function tier(i){
+  if(i<=40)return{c:"silver",p:1000};
+  if(i<=80)return{c:"gold",p:1500};
+  return{c:"platinum",p:2000};
+}
+
+let n=1;
+rows.forEach(r=>{
+  let l=document.createElement("div");
+  l.className="row-label";
+  l.textContent=r;
+  grid.appendChild(l);
+
+  for(let i=1;i<=10;i++){
+    const d=tier(n);
+    const s=document.createElement("div");
+    s.className=`seat ${d.c}`;
+    s.textContent=r+i;
+    if(sold.has(n))s.classList.add("sold-out");
+
+    s.onclick=()=>{
+      if(s.classList.contains("sold-out"))return;
+      s.classList.toggle("selected");
+      if(s.classList.contains("selected")){
+        selected.push({id:s.textContent,price:d.p});
+        resetTimer();
+      }else{
+        selected=selected.filter(x=>x.id!==s.textContent);
+      }
+      update();
+    };
+    grid.appendChild(s); n++;
+  }
+});
+
+function update(){
+  seatList.textContent=selected.map(s=>s.id).join(", ")||"None";
+  count.textContent=selected.length;
+  total=selected.reduce((a,b)=>a+b.price,0);
+  price.textContent=total;
+}
+
+function resetTimer(){
+  clearInterval(timer);
+  hold=60; timerEl.textContent=hold;
+  timer=setInterval(()=>{
+    hold--; timerEl.textContent=hold;
+    if(hold===0){
+      selected=[];
+      document.querySelectorAll(".selected").forEach(s=>s.classList.remove("selected"));
+      update(); clearInterval(timer);
+      alert("Seat hold expired!");
+    }
+  },1000);
+}
+
+function openReceipt(){
+  if(!selected.length)return alert("Select seats first");
+  bookingId="GT-"+Date.now().toString().slice(-6);
+  mainView.style.display="none";
+  receiptView.style.display="block";
+  rId.textContent=bookingId;
+  rSeats.textContent=selected.map(s=>s.id).join(", ");
+  rCount.textContent=selected.length;
+  rAmount.textContent=total;
+}
+
+function goToPayment(){
+  receiptView.style.display="none";
+  paymentView.style.display="block";
+  amountBox.value="₹ "+total;
+}
+
+function processPayment(){
+  if(cardNumber.value.length!==16||cvv.value.length!==3)
+    return alert("Invalid card details");
+  processing.style.display="block";
+  setTimeout(()=>{
+    paymentView.style.display="none";
+    successView.style.display="block";
+    sId.textContent=bookingId;
+    sSeats.textContent=rSeats.textContent;
+    sAmount.textContent=total;
+  },2500);
+}
+
+function toggleContrast(){
+  document.body.classList.toggle("high-contrast");
+}
+</script>
+
+</body>
+</html>
